@@ -35,9 +35,7 @@ L_y = 1E+6  # Length of domain in y-direction
 g = 9.81  # Acceleration of gravity [m/s^2]
 H = 100  # Resting (mean) Depth of fluid [m]
 f_0 = (2 * math.pi / 12) / (60 * 60)  # Fixed part of coriolis parameter [radian/s]
-latitude = math.pi/4  # in range [-pi/2, pi/2]
-rho_0 = 1024.0  # Density of fluid [kg/m^3)]
-tau_0 = 0.1  # Amplitude of wind stress [kg/ms^2]
+latitude = math.pi / 4  # in range [-pi/2, pi/2]
 use_coriolis = True  # True if you want coriolis force
 use_source = False  # True if you want mass source into the domain
 use_sink = False  # True if you want mass sink out of the domain
@@ -52,7 +50,7 @@ dx = L_x / (N_x - 1)  # Grid spacing in x-direction
 dy = L_y / (N_y - 1)  # Grid spacing in y-direction
 dt = 0.1 * min(dx, dy) / np.sqrt(g * H)  # Time step (defined from the CFL condition)
 time_step = 1  # For counting time loop steps
-max_time_step = 5000  # Total number of time steps in simulation
+max_time_step = 500  # Total number of time steps in simulation
 x = np.linspace(-L_x / 2, L_x / 2, N_x)  # Array with x-points
 y = np.linspace(-L_y / 2, L_y / 2, N_y)  # Array with y-points
 X, Y = np.meshgrid(x, y)  # Meshgrid for plotting
@@ -92,6 +90,7 @@ v_n = np.zeros((N_x, N_y))  # To hold v at current time step
 v_np1 = np.zeros((N_x, N_y))  # To hold v at enxt time step
 eta_n = np.zeros((N_x, N_y))  # To hold eta at current time step
 eta_np1 = np.zeros((N_x, N_y))  # To hold eta at next time step
+bed = np.zeros((N_x, N_y))  # To hold bed structure
 
 # Temporary variables (each time step) for upwind scheme in eta equation
 h_e = np.zeros((N_x, N_y))
@@ -110,13 +109,18 @@ v_n[:, -1] = 0.0  # Ensuring initial v satisfy BC
 # Initial condition for eta.
 # eta_n[:, :] = np.sin(4*np.pi*X/L_y) + np.sin(4*np.pi*Y/L_y)
 # eta_n = np.exp(-((X-0)**2/(2*(L_R)**2) + (Y-0)**2/(2*(L_R)**2)))
-# eta_n = np.exp(-((X - L_x / 2.7) ** 2 / (2 * (0.05E+6) ** 2) + (Y - L_y / 4) ** 2 / (2 * (0.05E+6) ** 2)))
+eta_n = np.exp(-((X - L_x / 2.7) ** 2 / (2 * (0.05E+6) ** 2) + (Y - L_y / 4) ** 2 / (2 * (0.05E+6) ** 2)))
 # eta_n[int(3*N_x/8):int(5*N_x/8),int(3*N_y/8):int(5*N_y/8)] = 0.3
 # eta_n[int(6*N_x/8):int(7*N_x/8),int(6*N_y/8):int(7*N_y/8)] = 1.0
 # eta_n[int(3*N_x/8):int(5*N_x/8), int(13*N_y/14):] = 1.0
-eta_n[:, :] = -0.1
-
+# eta_n[:, :] = -0.1
 # viz_tools.surface_plot3D(X, Y, eta_n, (X.min(), X.max()), (Y.min(), Y.max()), (eta_n.min(), eta_n.max()))
+
+
+# Initial condition for bed structure
+bed = -(((X) ** 2 + (Y) ** 2) / 50E10)
+viz_tools.surface_plot3D(X/1000, Y/1000, bed, (X.min()/1000, X.max()/1000), (Y.min()/1000, Y.max()/1000), (-0.3, 0.7))
+
 
 # Sampling variables.
 eta_list = list()
@@ -223,7 +227,7 @@ print("\nVisualizing results...")
 # viz_tools.hovmuller_plot(x, t_sample, hm_sample)
 # viz_tools.plot_time_series_and_ft(t_sample, ts_sample)
 # eta_anim = viz_tools.eta_animation(X, Y, eta_list, anim_interval * dt, "eta")
-eta_surf_anim = viz_tools.eta_animation3D(X, Y, eta_list, anim_interval * dt, "eta_surface")
+eta_surf_anim = viz_tools.eta_animation3D(X, Y, eta_list, bed, anim_interval * dt, "eta_surface")
 # quiv_anim = viz_tools.velocity_animation(X, Y, u_list, v_list, anim_interval * dt, "velocity")
 # ============================ Done with visualization =============================
 

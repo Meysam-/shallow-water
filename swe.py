@@ -6,7 +6,7 @@ set of eqations:
 
     du/dt - fv = -g*d(eta)/dx + tau_x/(rho_0*H)- kappa*u
     dv/dt + fu = -g*d(eta)/dy + tau_y/(rho_0*H)- kappa*v
-    d(eta)/dt + d((eta + H)*u)/dx + d((eta + H)*v)/dy = sigma - w
+    d(eta)/dt + d((eta + H)*u)/dx + d((eta + H)*v)/dy = source - sink
 
 where f = f_0 + beta*y can be the full latitude varying coriolis parameter.
 For the momentum equations, an ordinary forward-in-time centered-in-space
@@ -68,13 +68,13 @@ if use_coriolis is True:
     param_string += "\n================================================================\n"
 
 # Define source array if source is enabled.
-if use_source:
-    sigma = np.zeros((N_x, N_y))
-    sigma = 0.0001 * np.exp(-((X - L_x / 2) ** 2 / (2 * (1E+5) ** 2) + (Y - L_y / 2) ** 2 / (2 * (1E+5) ** 2)))
+if use_source is True:
+    source = np.zeros((N_x, N_y))
+    source = 0.0001 * np.exp(-((X - L_x / 2) ** 2 / (2 * (1E+5) ** 2) + (Y - L_y / 2) ** 2 / (2 * (1E+5) ** 2)))
 
-# Define source array if source is enabled.
+# Define sink array if source is enabled.
 if use_sink is True:
-    w = np.ones((N_x, N_y)) * sigma.sum() / (N_x * N_y)
+    sink = np.ones((N_x, N_y)) * source.sum() / (N_x * N_y)
 
 # Write all parameters out to file.
 with open("param_output.txt", "w") as output_file:
@@ -110,11 +110,11 @@ v_n[:, -1] = 0.0  # Ensuring initial v satisfy BC
 # Initial condition for eta.
 # eta_n[:, :] = np.sin(4*np.pi*X/L_y) + np.sin(4*np.pi*Y/L_y)
 # eta_n = np.exp(-((X-0)**2/(2*(L_R)**2) + (Y-0)**2/(2*(L_R)**2)))
-eta_n = np.exp(-((X - L_x / 2.7) ** 2 / (2 * (0.05E+6) ** 2) + (Y - L_y / 4) ** 2 / (2 * (0.05E+6) ** 2)))
+# eta_n = np.exp(-((X - L_x / 2.7) ** 2 / (2 * (0.05E+6) ** 2) + (Y - L_y / 4) ** 2 / (2 * (0.05E+6) ** 2)))
 # eta_n[int(3*N_x/8):int(5*N_x/8),int(3*N_y/8):int(5*N_y/8)] = 0.3
 # eta_n[int(6*N_x/8):int(7*N_x/8),int(6*N_y/8):int(7*N_y/8)] = 1.0
 # eta_n[int(3*N_x/8):int(5*N_x/8), int(13*N_y/14):] = 1.0
-# eta_n[:, :] = -0.1
+eta_n[:, :] = -0.1
 
 # viz_tools.surface_plot3D(X, Y, eta_n, (X.min(), X.max()), (Y.min(), Y.max()), (eta_n.min(), eta_n.max()))
 
@@ -156,7 +156,7 @@ while time_step < max_time_step:
     # -------------------------- Done with u and v -----------------------------
 
     # --- Computing arrays needed for the upwind scheme in the eta equation.----
-    # d(eta)/dt + d((eta + H)*u)/dx + d((eta + H)*v)/dy = sigma - w
+    # d(eta)/dt + d((eta + H)*u)/dx + d((eta + H)*v)/dy = source - sink
     # forward difference for the time derivative and an upwind scheme for the non-linear terms
 
     h_e[:-1, :] = np.where(u_np1[:-1, :] > 0, eta_n[:-1, :] + H, eta_n[1:, :] + H)
@@ -183,11 +183,11 @@ while time_step < max_time_step:
 
     # Add source term if enabled.
     if use_source is True:
-        eta_np1[:, :] += dt * sigma
+        eta_np1[:, :] += dt * source
 
     # Add sink term if enabled.
     if use_sink is True:
-        eta_np1[:, :] -= dt * w
+        eta_np1[:, :] -= dt * sink
     # ----------------------------- Done with eta --------------------------------
 
     u_n = np.copy(u_np1)  # Update u for next iteration

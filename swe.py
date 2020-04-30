@@ -21,7 +21,7 @@ linear terms. The model is stable under the CFL condition of
 where dx, dy is the grid spacing in the x- and y-direction respectively, g is
 the acceleration of gravity and H is the resting depth of the fluid."""
 
-import time
+import time, math
 import numpy as np
 import matplotlib.pyplot as plt
 import viz_tools
@@ -29,21 +29,19 @@ import viz_tools
 # ==================================================================================
 # ================================ Parameter stuff =================================
 # ==================================================================================
-# --------------- Physical prameters ---------------
+# --------------- Physical parameters ---------------
 L_x = 1E+6  # Length of domain in x-direction
 L_y = 1E+6  # Length of domain in y-direction
 g = 9.81  # Acceleration of gravity [m/s^2]
-H = 100  # Depth of fluid [m]
-f_0 = 1E-4  # Fixed part ofcoriolis parameter [1/s]
-beta = 2E-11  # gradient of coriolis parameter [1/ms]
+H = 100  # Resting (mean) Depth of fluid [m]
+f_0 = (2 * math.pi / 12) / (60 * 60)  # Fixed part of coriolis parameter [radian/s]
+latitude = math.pi/4  # in range [-pi/2, pi/2]
 rho_0 = 1024.0  # Density of fluid [kg/m^3)]
 tau_0 = 0.1  # Amplitude of wind stress [kg/ms^2]
-use_coriolis = False  # True if you want coriolis force
-use_beta = False  # True if you want variation in coriolis
+use_coriolis = True  # True if you want coriolis force
 use_source = False  # True if you want mass source into the domain
 use_sink = False  # True if you want mass sink out of the domain
 param_string = "\n================================================================"
-param_string += "\nuse_coriolis = {}\nuse_beta = {}".format(use_coriolis, use_beta)
 param_string += "\nuse_source = {}\nuse_sink = {}".format(use_source, use_sink)
 param_string += "\ng = {:g}\nH = {:g}".format(g, H)
 
@@ -64,22 +62,9 @@ param_string += "\ndx = {:.2f} km\ndy = {:.2f} km\ndt = {:.2f} s".format(dx, dy,
 
 # Define coriolis array if coriolis is enabled.
 if use_coriolis is True:
-    if use_beta is True:
-        f = f_0 + beta * y  # Varying coriolis parameter
-        L_R = np.sqrt(g * H) / f_0  # Rossby deformation radius
-        c_R = beta * g * H / f_0 ** 2  # Long Rossby wave speed
-    else:
-        f = f_0 * np.ones(len(y))  # Constant coriolis parameter
-
-    alpha = dt * f  # Parameter needed for coriolis scheme
-    beta_c = alpha ** 2 / 4  # Parameter needed for coriolis scheme
+    f = (f_0 * math.sin(latitude)) * np.ones(len(y))  # Constant coriolis parameter
 
     param_string += "\nf_0 = {:g}".format(f_0)
-    param_string += "\nMax alpha = {:g}\n".format(alpha.max())
-    param_string += "\nRossby radius: {:.1f} km".format(L_R / 1000)
-    param_string += "\nRossby number: {:g}".format(np.sqrt(g * H) / (f_0 * L_x))
-    param_string += "\nLong Rossby wave speed: {:.3f} m/s".format(c_R)
-    param_string += "\nLong Rossby transit time: {:.2f} days".format(L_x / (c_R * 24 * 3600))
     param_string += "\n================================================================\n"
 
 # Define source array if source is enabled.
@@ -126,10 +111,10 @@ v_n[:, -1] = 0.0  # Ensuring initial v satisfy BC
 # eta_n[:, :] = np.sin(4*np.pi*X/L_y) + np.sin(4*np.pi*Y/L_y)
 # eta_n = np.exp(-((X-0)**2/(2*(L_R)**2) + (Y-0)**2/(2*(L_R)**2)))
 eta_n = np.exp(-((X - L_x / 2.7) ** 2 / (2 * (0.05E+6) ** 2) + (Y - L_y / 4) ** 2 / (2 * (0.05E+6) ** 2)))
-# eta_n[int(3*N_x/8):int(5*N_x/8),int(3*N_y/8):int(5*N_y/8)] = 1.0
+# eta_n[int(3*N_x/8):int(5*N_x/8),int(3*N_y/8):int(5*N_y/8)] = 0.3
 # eta_n[int(6*N_x/8):int(7*N_x/8),int(6*N_y/8):int(7*N_y/8)] = 1.0
 # eta_n[int(3*N_x/8):int(5*N_x/8), int(13*N_y/14):] = 1.0
-# eta_n[:, :] = 0.0
+# eta_n[:, :] = -0.1
 
 # viz_tools.surface_plot3D(X, Y, eta_n, (X.min(), X.max()), (Y.min(), Y.max()), (eta_n.min(), eta_n.max()))
 
@@ -163,8 +148,8 @@ while time_step < max_time_step:
 
     # Use a corrector method to add coriolis if it's enabled.
     if use_coriolis is True:
-        u_np1[:, :] = (u_np1[:, :] - beta_c * u_n[:, :] + alpha * v_n[:, :]) / (1 + beta_c)
-        v_np1[:, :] = (v_np1[:, :] - beta_c * v_n[:, :] - alpha * u_n[:, :]) / (1 + beta_c)
+        u_np1[:, :] = u_np1[:, :] + f * v_n[:, :]
+        v_np1[:, :] = v_np1[:, :] - f * u_n[:, :]
 
     v_np1[:, -1] = 0.0  # Northern boundary condition
     u_np1[-1, :] = 0.0  # Eastern boundary condition
@@ -237,9 +222,9 @@ print("\nVisualizing results...")
 # viz_tools.quiver_plot(X, Y, u_n, v_n, "Final state of velocity field $\mathbf{u}(x,y)$")
 # viz_tools.hovmuller_plot(x, t_sample, hm_sample)
 # viz_tools.plot_time_series_and_ft(t_sample, ts_sample)
-eta_anim = viz_tools.eta_animation(X, Y, eta_list, anim_interval * dt, "eta")
+# eta_anim = viz_tools.eta_animation(X, Y, eta_list, anim_interval * dt, "eta")
 eta_surf_anim = viz_tools.eta_animation3D(X, Y, eta_list, anim_interval * dt, "eta_surface")
-quiv_anim = viz_tools.velocity_animation(X, Y, u_list, v_list, anim_interval * dt, "velocity")
+# quiv_anim = viz_tools.velocity_animation(X, Y, u_list, v_list, anim_interval * dt, "velocity")
 # ============================ Done with visualization =============================
 
 print("\nVisualization done!")
